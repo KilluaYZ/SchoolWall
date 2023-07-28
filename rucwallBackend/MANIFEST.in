@@ -1,0 +1,10 @@
+global-include readio/*
+graft readio/auth
+graft readio/database
+graft readio/mainpage
+graft readio/manage
+graft readio/monitor
+graft readio/static
+graft readio/utils
+global-exlucde *.pyc
+global-exlucde *.git
