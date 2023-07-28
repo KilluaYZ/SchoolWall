@@ -1,70 +1,86 @@
 <template>
-  <el-row class="flex_justify_content_center">
-    <h1 class="title">RUC校园墙</h1>
-  </el-row>
-  <el-row>
-    <el-card class="base_card">
-      <el-input
-          v-model="commit_text"
-          :rows="7"
-          placeholder="分享你的快乐，分担你的忧愁"
-          type="textarea"/>
-      <el-row class="flex_justify_content_end">
-        <el-button class="margin_top_20px" type="primary" @click="onCommit">发表</el-button>
-      </el-row>
-    </el-card>
-  </el-row>
+ <el-container class="outer_container">
+   <el-header>
+     <div class="flex flex_justify_content_end">
+       <div v-if="is_login" class="flex flex_justify_content_end flex_align-items_center">
+         <p>20161111</p>
+         <el-button type="info">退出</el-button>
+       </div>
+       <div v-else class="flex flex_justify_content_end flex_align-items_center">
+         <el-button type="primary" @click="login">登录</el-button>
+       </div>
+     </div>
+   </el-header>
 
-  <el-row>
-    <el-card class="base_card margin_top_20px">
-      <el-input
-          v-model="search_text"
-          class="serach_input"
-          placeholder="请输入关键词"
-      />
-      <el-button type="primary" @click="onSearch">搜索</el-button>
-    </el-card>
-  </el-row>
+   <el-main>
+     <el-row class="flex flex_justify_content_center">
+       <h1 class="title">RUC校园墙</h1>
+     </el-row>
+     <el-row>
+       <el-card class="base_card">
+         <el-input
+             v-model="commit_text"
+             :rows="7"
+             placeholder="分享你的快乐，分担你的忧愁"
+             type="textarea"/>
+         <el-row class="flex_justify_content_end">
+           <el-button class="margin_top_20px" type="primary" @click="onCommit">发表</el-button>
+         </el-row>
+       </el-card>
+     </el-row>
 
-  <el-row v-for="(post, index) in posts" :key="index">
-    <el-card class="base_card margin_top_20px">
-      <el-row class="flex_justify_content_space_between flex_align-items_center">
-        <p>#{{ post.id }}</p>
-        <div class="flex flex_align-items_center">
-          <p>{{ post.time }}</p>
-          <el-dropdown :hide-on-click="false" class="margin_left_5px">
-<!--          <span class="el-dropdown-link">-->
-<!--            Dropdown List<el-icon class="el-icon&#45;&#45;right"><arrow-down/></el-icon>-->
-<!--          </span>-->
-            <el-image class="squire_18px" src="/src/assets/options-vertical.png"/>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item>举报</el-dropdown-item>
-                <el-dropdown-item>删除</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </el-row>
-      <el-row class="content_el_row">
-        <p class="content_p">{{ post.content }}</p>
-      </el-row>
-      <el-row>
-        <el-divider/>
-      </el-row>
+     <el-row>
+       <el-card class="base_card margin_top_20px">
+         <el-input
+             v-model="search_text"
+             class="serach_input"
+             placeholder="请输入关键词"
+         />
+         <el-button type="primary" @click="onSearch">搜索</el-button>
+       </el-card>
+     </el-row>
 
-      <el-row class="flex_justify_content_space_between">
-        <div class="flex flex_align-items_center">
-          <el-image class="squire_18px" src="/src/assets/like.png"/>
-          <p class="margin_left_5px">{{ post.likeNum }}</p>
-        </div>
-        <div class="flex flex_align-items_center">
-          <el-image class="squire_18px" src="/src/assets/message.png"/>
-          <p class="margin_left_5px">{{ post.replyNum }}</p>
-        </div>
-      </el-row>
-    </el-card>
-  </el-row>
+     <el-row v-for="(post, index) in posts" :key="index">
+       <el-card class="base_card margin_top_20px">
+         <el-row class="flex_justify_content_space_between flex_align-items_center">
+           <p>#{{ post.id }}</p>
+           <div class="flex flex_align-items_center">
+             <p>{{ post.time }}</p>
+             <el-dropdown :hide-on-click="false" class="margin_left_5px">
+               <!--          <span class="el-dropdown-link">-->
+               <!--            Dropdown List<el-icon class="el-icon&#45;&#45;right"><arrow-down/></el-icon>-->
+               <!--          </span>-->
+               <el-image class="squire_18px" src="/src/assets/options-vertical.png"/>
+               <template #dropdown>
+                 <el-dropdown-menu>
+                   <el-dropdown-item>举报</el-dropdown-item>
+                   <el-dropdown-item>删除</el-dropdown-item>
+                 </el-dropdown-menu>
+               </template>
+             </el-dropdown>
+           </div>
+         </el-row>
+         <el-row class="content_el_row">
+           <p class="content_p">{{ post.content }}</p>
+         </el-row>
+         <el-row>
+           <el-divider/>
+         </el-row>
+
+         <el-row class="flex_justify_content_space_between">
+           <div class="flex flex_align-items_center">
+             <el-image class="squire_18px" src="/src/assets/like.png"/>
+             <p class="margin_left_5px">{{ post.likeNum }}</p>
+           </div>
+           <div class="flex flex_align-items_center">
+             <el-image class="squire_18px" src="/src/assets/message.png"/>
+             <p class="margin_left_5px">{{ post.replyNum }}</p>
+           </div>
+         </el-row>
+       </el-card>
+     </el-row>
+   </el-main>
+ </el-container>
 
 </template>
 
@@ -130,6 +146,10 @@
   margin-left: 5px;
 }
 
+
+.outer_container{
+  width: 100%;
+}
 </style>
 
 <script setup>
@@ -138,6 +158,8 @@ import {ref} from "vue";
 
 const commit_text = ref('');
 const search_text = ref('');
+const is_login = ref(false);
+
 const posts = ref([
   {
     id: 123,
