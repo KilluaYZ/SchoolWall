@@ -1,7 +1,7 @@
 import inspect
 from typing import List, Dict, Optional
-from readio.utils.myExceptions import NetworkException
-from readio.utils import check
+from schoolwall.utils.myExceptions import NetworkException
+from schoolwall.utils import check
 
 
 # 读取数据库

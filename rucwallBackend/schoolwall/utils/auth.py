@@ -6,14 +6,14 @@ import random
 
 from typing import Dict, Union, Optional
 from werkzeug.security import check_password_hash, generate_password_hash
-import readio.database.connectPool
-from readio.utils import check
-from readio.utils.check import printException
-from readio.utils.myExceptions import NetworkException
-from readio.utils.executeSQL import *
+import schoolwall.database.connectPool
+from schoolwall.utils import check
+from schoolwall.utils.check import printException
+from schoolwall.utils.myExceptions import NetworkException
+from schoolwall.utils.executeSQL import *
 global pooldb
-pooldb = readio.database.connectPool.pooldb
-from readio.utils.buildResponse import *
+pooldb = schoolwall.database.connectPool.pooldb
+from schoolwall.utils.buildResponse import *
 
 
 def build_token():

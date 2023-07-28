@@ -20,10 +20,10 @@ from schoolwall.manage.userManage import get_user_by_id_aux
 
 bp = Blueprint('postManage', __name__, url_prefix='/post')
 
-pooldb = readio.database.connectPool.pooldb
+pooldb = schoolwall.database.connectPool.pooldb
 
 def __query_post_sql(query_param: dict) -> List[Dict]:
-    sql_select = ' select * from post '
+    sql_select = ' select * from posts '
     args_str_list = []
     args_val_list = []
 
@@ -47,30 +47,42 @@ def __query_post_sql(query_param: dict) -> List[Dict]:
 def __get_liked_posts_sql(userId: str) -> List:
     sql = ' select postId from user_post_like where userId = %s '
     rows = execute_sql_query(pooldb, sql, (userId))
+    rows = list(map(lambda x: x['postId'], rows))
     return rows
+
+def __get_post_like_num(postId):
+    sql = ' select count(*) from user_post_like where replyId = %s '
+    row = execute_sql_query_one(pooldb, sql, (postId))
+    return int(row['count(*)'])
+
+def __get_post_reply_num(postId):
+    sql = ' select count(*) from reply where postId = %s '
+    row = execute_sql_query_one(pooldb, sql, (postId))
+    return int(row['count(*)'])
 
 @bp.route('/list', methods=['GET'])
 def post_list():
     """
     获取全部的帖子
     """
-
     try:
         rows = __query_post_sql({})
         for i in range(len(rows)):
-            rows[i]['isLiked'] = false
+            rows[i]['isLiked'] = False
+            rows[i]['likeNum'] = __get_post_like_num(rows[i]['id'])
+            rows[i]['replyNum'] = __get_post_reply_num(rows[i]['id'])
 
-        admin_user = check_user_before_request(request, 'admin')
+        admin_user = check_user_before_request(request, False, 'admin')
         if admin_user is not None:
             for i in range(len(rows)):
-                rows[i]['isLiked'] = true
+                rows[i]['isLiked'] = True
         else:
-            common_user = check_user_before_request(request, 'common')
+            common_user = check_user_before_request(request, False,'common')
             if common_user is not None:
                 liked_posts_ids = __get_liked_posts_sql(common_user['id'])
                 for i in range(len(rows)):
                     if(rows[i]['id'] in liked_posts_ids):
-                        rows[i]['isLiked'] = true
+                        rows[i]['isLiked'] = True
 
         return build_success_response(rows)
 
@@ -81,11 +93,9 @@ def post_list():
         check.printException(e)
         return build_error_response(code=500, msg='服务器内部错误')
 
-
 def __add_post_sql(content, userId):
-    sql = ' insert into post(content, userId) values(%s, %s) '
+    sql = ' insert into posts(content, userId) values(%s, %s) '
     return execute_sql_write(pooldb, sql, (content, userId))
-
 
 @bp.route('/add', methods=['POST'])
 def post_add():
@@ -94,6 +104,8 @@ def post_add():
     """
     try:
         content = request.json.get("content")
+        if content is None:
+            raise NetworkException(400, "前端数据错误，缺少content")
         user = check_user_before_request(request)
         __add_post_sql(content, user['id'])
 
@@ -107,9 +119,17 @@ def post_add():
         return build_error_response(code=500, msg='服务器内部错误')
 
 
-def __del_post_sql(postId, userId):
-    sql = ' delete from post where id = %s and userId = %s '
-    return execute_sql_write(pooldb, sql, (postId, userId))
+def __del_post_sql(postId):
+    sql = ' delete from posts where id = %s '
+    return execute_sql_write(pooldb, sql, (postId))
+
+
+def __check_if_post_belong_to_user(userId, postId):
+    sql = ' select * from posts where id = %s and userId = %s '
+    rows = execute_sql_query(pooldb, sql, (postId, userId))
+    if len(rows) > 0:
+        return True
+    return False
 
 @bp.route('/del', methods=['GET'])
 def post_del():
@@ -121,7 +141,11 @@ def post_del():
         if postId is None:
             raise NetworkException(400, '前端缺少参数postId')
         user = check_user_before_request(request)
-        __del_post_sql(postId, user['id'])
+        if __check_if_post_belong_to_user(user['id'], postId):
+            __del_post_sql(replyId)
+        else:
+            user = check_user_before_request(request, roles='admin')
+            __del_post_sql(replyId)
 
         return build_success_response()
 
@@ -138,7 +162,7 @@ def __add_post_like_sql(postId, userId):
     return execute_sql_write(pooldb, sql, (postId, userId))
 
 @bp.route('/like/add', methods=['GET'])
-def post_like_del():
+def post_like_add():
     """
     删除一个post
     """
@@ -174,6 +198,159 @@ def post_like_del():
             raise NetworkException(400, '前端缺少参数postId')
         user = check_user_before_request(request)
         __del_post_like_sql(postId, user['id'])
+
+        return build_success_response()
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
+
+    except Exception as e:
+        check.printException(e)
+        return build_error_response(code=500, msg='服务器内部错误')
+
+#-----------------------------------reply-----------------------------------------------
+def __query_reply_sql(postId) -> List[Dict]:
+    sql = ' select * from reply where postId=%s order by createTime desc '
+
+    rows = execute_sql_query(pooldb, sql, (postId))
+
+    return rows
+
+def __get_liked_reply_sql(userId: str) -> List:
+    sql = ' select replyId from user_reply_like where userId = %s '
+    rows = execute_sql_query(pooldb, sql, (userId))
+    rows = list(map(lambda x:x['replyId'], rows))
+    return rows
+
+def __get_reply_like_num(replyId):
+    sql = ' select count(*) from user_reply_like where replyId = %s '
+    row = execute_sql_query_one(pooldb, sql, (replyId))
+    return int(row['count(*)'])
+
+def get_reply_list_by_postId(postId, userId, is_admin = False):
+    rows = __query_reply_sql(postId)
+
+    for i in range(len(rows)):
+        rows[i]['isLike'] = False
+        rows[i]['likeNum'] = __get_reply_like_num(rows[i]['id'])
+
+    if is_admin:
+        for i in range(len(rows)):
+            rows[i]['isLiked'] = True
+    else:
+        liked_reply_ids = __get_liked_reply_sql(userId)
+        for i in range(len(rows)):
+            if (rows[i]['id'] in liked_reply_ids):
+                row[i]['isLiked'] = True
+            else:
+                row[i]['isLiked'] = False
+    return rows
+
+def __add_reply_sql(content, userId, postId):
+    sql = ' insert into reply(content, userId, postId) values(%s, %s, %s) '
+    return execute_sql_write(pooldb, sql, (content, userId, postId))
+
+@bp.route('/reply/add', methods=['POST'])
+def reply_add():
+    """
+    添加一个新的post
+    """
+    try:
+        content = request.json.get("content")
+        postId = request.json.get("postId")
+        if content is None or postId is None:
+            raise NetworkException(400, "前端数据错误，缺少content或postId")
+        user = check_user_before_request(request)
+        __add_reply_sql(content, user['id'], postId)
+
+        return build_success_response()
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
+
+    except Exception as e:
+        check.printException(e)
+        return build_error_response(code=500, msg='服务器内部错误')
+
+
+def __del_reply_sql(postId):
+    sql = ' delete from reply where id = %s '
+    return execute_sql_write(pooldb, sql, (postId, userId))
+
+
+def __check_if_reply_belong_to_user(userId, replyId):
+    sql = ' select * from reply where id = %s and userId = %s '
+    rows = execute_sql_query(pooldb, sql, (replyId, userId))
+    if len(rows) > 0:
+        return True
+    return False
+@bp.route('/reply/del', methods=['GET'])
+def reply_del():
+    """
+    删除一个post
+    """
+    try:
+        replyId = request.args.get("replyId")
+        if replyId is None:
+            raise NetworkException(400, '前端缺少参数replyId')
+        user = check_user_before_request(request)
+        if __check_if_reply_belong_to_user(user['id'], replyId):
+            __del_reply_sql(replyId)
+        else:
+            user = check_user_before_request(request, roles='admin')
+            __del_reply_sql(replyId)
+
+        return build_success_response()
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
+
+    except Exception as e:
+        check.printException(e)
+        return build_error_response(code=500, msg='服务器内部错误')
+
+
+def __add_reply_like_sql(replyId, userId):
+    sql = ' insert into user_reply_like(replyId, userId) values(%s, %s) '
+    return execute_sql_write(pooldb, sql, (replyId, userId))
+
+@bp.route('/reply/like/add', methods=['GET'])
+def reply_like_add():
+    """
+    删除一个post
+    """
+    try:
+        replyId = request.args.get("replyId")
+        if replyId is None:
+            raise NetworkException(400, '前端缺少参数replyId')
+        user = check_user_before_request(request)
+        __add_reply_like_sql(replyId, user['id'])
+
+        return build_success_response()
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
+
+    except Exception as e:
+        check.printException(e)
+        return build_error_response(code=500, msg='服务器内部错误')
+
+
+def __del_reply_like_sql(replyId, userId):
+    sql = ' delete from user_reply_like where replyId = %s and userId = %s '
+    return execute_sql_write(pooldb, sql, (replyId, userId))
+
+@bp.route('/reply/like/del', methods=['GET'])
+def reply_like_del():
+    """
+    删除一个post
+    """
+    try:
+        replyId = request.args.get("replyId")
+        if replyId is None:
+            raise NetworkException(400, '前端缺少参数replyId')
+        user = check_user_before_request(request)
+        __del_post_like_sql(reply, user['id'])
 
         return build_success_response()
 

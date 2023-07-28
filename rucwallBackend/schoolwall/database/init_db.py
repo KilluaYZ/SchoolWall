@@ -7,9 +7,9 @@ import os
 import sys
 import click
 
-import readio.database.connectPool
+import schoolwall.database.connectPool
 global pooldb
-pooldb = readio.database.connectPool.pooldb
+pooldb = schoolwall.database.connectPool.pooldb
 
 def init_db():
     print("暂时不支持创建数据库捏~ 数据库好好珍惜，不小心弄坏了就没有了捏")

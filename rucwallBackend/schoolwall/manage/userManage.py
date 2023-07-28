@@ -20,9 +20,9 @@ from schoolwall.utils.myExceptions import NetworkException
 # conndb = Conndb(cursor_mode='dict')
 bp = Blueprint('user', __name__, url_prefix='/user')
 
-import readio.database.connectPool
+import schoolwall.database.connectPool
 
-pooldb = readio.database.connectPool.pooldb
+pooldb = schoolwall.database.connectPool.pooldb
 
 
 def query_user_sql(queryParam):
@@ -314,7 +314,7 @@ def forceLogout():
         return build_error_response(code=500, msg="服务器内部错误")
 
 
-from readio.auth.appAuth import user_profile_update_user_pwd
+from schoolwall.auth.appAuth import user_profile_update_user_pwd
 
 
 @bp.route('/resetPwd', methods=['POST'])

@@ -6,16 +6,16 @@ from flask import Blueprint
 from flask import redirect
 from flask import url_for
 from werkzeug.security import check_password_hash, generate_password_hash
-from readio.utils.buildResponse import *
-from readio.utils.auth import *
-import readio.database.connectPool
-import readio.utils.check as check
-from readio.utils.executeSQL import execute_sql_query
+from schoolwall.utils.buildResponse import *
+from schoolwall.utils.auth import *
+import schoolwall.database.connectPool
+import schoolwall.utils.check as check
+from schoolwall.utils.executeSQL import execute_sql_query
 
 # appAuth = Blueprint('/auth/app', __name__)
 bp = Blueprint('auth', __name__, url_prefix='/app/auth')
 
-pooldb = readio.database.connectPool.pooldb
+pooldb = schoolwall.database.connectPool.pooldb
 
 def authorize_username_password(username, passWord):
     try:

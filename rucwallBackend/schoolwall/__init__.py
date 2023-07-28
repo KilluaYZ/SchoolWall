@@ -8,10 +8,10 @@ from flask import Flask, url_for
 from flask_cors import CORS  # 跨域
 
 # app
-from readio.auth import appAuth
-from readio.database.init_db import init_db
-from readio.manage import postManage, userManage
-from readio.utils.json import CustomJSONEncoder
+from schoolwall.auth import appAuth
+from schoolwall.database.init_db import init_db
+from schoolwall.manage import postManage, userManage
+from schoolwall.utils.json import CustomJSONEncoder
 
 
 # 创建flask app
@@ -33,19 +33,13 @@ def create_app():
         """删除现有的所有数据，并新建关系表"""
         init_db()
 
-    app.register_blueprint(monitor, url_prefix='/monitor')
     app.register_blueprint(userManage.bp)
     app.register_blueprint(appAuth.bp)
-    app.register_blueprint(appHomePage.bp)
-    app.register_blueprint(appBookShelfPage.bp)
-    app.register_blueprint(appBookDetailsPage.bp)
-    app.register_blueprint(appBookReadPage.bp)
-    app.register_blueprint(fileManage.bp)
-    app.register_blueprint(worksManage.bp)
+    app.register_blueprint(postManage.bp)
 
     # 配置定时任务
     # 该任务作用是每个一个小时检查一次user_token表，将超过1天未活动的token删掉（随便定的，后面改
-    from readio.manage.userManage import checkSessionsAvailability
+    from schoolwall.manage.userManage import checkSessionsAvailability
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=checkSessionsAvailability,
                       id='checkSessionsAvailability',

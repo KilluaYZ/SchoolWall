@@ -104,5 +104,4 @@ venv.bak/
 .mypy_cache/
 .idea/
 
-/readio_server_runtime_data
 nohup.out
