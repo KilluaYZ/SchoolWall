@@ -109,6 +109,7 @@ def check_tokens_get_state(token, roles):
     if user is None:
         # 查无此人
         return 404
+    print(f'[DEBUG] roles = {roles}  user[roles] = {user["roles"]}')
     if roles == 'admin':
         if user['roles'] != 'admin':
             # 没有权限
@@ -131,6 +132,7 @@ def check_tokens_get_state(token, roles):
 # 检查Token和权限，如果不是200就直接返回到客户端
 def check_tokens_reponse_if_not200(token, roles):
     state = check_tokens_get_state(token, roles)
+    print(f'[DEBUG] state = {state}')
     if state == 401:
         raise NetworkException(code=401, msg='会话已过期，请重新登录')
     elif state == 404:

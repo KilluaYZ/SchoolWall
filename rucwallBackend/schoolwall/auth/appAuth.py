@@ -13,7 +13,7 @@ import schoolwall.utils.check as check
 from schoolwall.utils.executeSQL import execute_sql_query
 
 # appAuth = Blueprint('/auth/app', __name__)
-bp = Blueprint('auth', __name__, url_prefix='/app/auth')
+bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 pooldb = schoolwall.database.connectPool.pooldb
 
@@ -26,7 +26,7 @@ def authorize_username_password(username, passWord):
         if user is None:
             raise Exception('用户名不正确')
 
-        if not check_password_hash(user['passWord'], passWord):
+        if not check_password_hash(user['password'], passWord):
             raise Exception('密码不正确')
 
         # 都正确了，开始创建会话
@@ -61,33 +61,16 @@ def authorize_userId_password(userId, passWord):
 
 # 用户注册的sql语句, 默认的用户名随机生成，用户用phoneNumber和password注册
 def register_user_sql(password, username):
-    try:
-        conn, cursor = pooldb.get_conn()
-        cursor.execute('insert into users(username,password,roles) values(%s,%s,%s)',
-                       (username, generate_password_hash(password), phoneNumber, 'common'))
-        conn.commit()
-        pooldb.close_conn(conn, cursor)
-
-    except Exception as e:
-        pooldb.close_conn(conn, cursor) if conn is not None else None
-        raise e
+    sql = ' insert into users(username,password,roles) values(%s,%s,%s) '
+    return execute_sql_write(pooldb, sql, (username, generate_password_hash(password), 'common'))
 
 
 # 检查phoneNumber是不是唯一的，如果是则返回True，否则返回False
 def checkUsernameIsUnique(username):
-    try:
-        conn, cursor = pooldb.get_conn()
-        cursor.execute('select * from users where username=%s', (username))
-        rows = cursor.fetchall()
-        pooldb.close_conn(conn, cursor)
-        if (len(rows) == 0):
-            return True
-        return False
-
-    except Exception as e:
-        pooldb.close_conn(conn, cursor) if conn is not None else None
-        raise e
-
+    rows = execute_sql_query(pooldb, ' select * from users where username=%s ', (username))
+    if (len(rows) == 0):
+        return True
+    return False
 
 @bp.route('/register', methods=['POST'])
 def register():
@@ -95,14 +78,21 @@ def register():
         data = request.json
         if 'username' not in data or 'password' not in data:
             raise Exception('前端数据错误！缺少username或password')
+
         if not checkUsernameIsUnique(data['username']):
             return build_error_response(msg='该用户名已被注册')
+
         register_user_sql(data['password'], data['username'])
+
         return build_success_response()
+
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
 
     except Exception as e:
         check.printException(e)
-        return build_error_response(msg='注册失败')
+        return build_error_response(code=500, msg='服务器内部错误')
 
 
 # 收到用户名密码，返回会话对应的toKen
@@ -114,7 +104,7 @@ def login():
             raise Exception('前端数据不正确，username或password')
         username = data['username']
 
-        password = data['passWord']
+        password = data['password']
         user = authorize_username_password(username, password)
         if user is None:
             return build_error_response(msg='用户名或密码错误')
@@ -124,9 +114,13 @@ def login():
         # tokenList.append(token)
         return build_success_response({"token": token})
 
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
+
     except Exception as e:
         check.printException(e)
-        return build_error_response(msg='登录失败')
+        return build_error_response(code=500, msg='服务器内部错误')
 
 
 # 退出登录，本质上就是删除与用户建立的对话
@@ -157,8 +151,7 @@ def profile():
             response = {
                 "userInfo": {
                     "userId": user['id'],
-                    "userName": user['userName'],
-                    "createTime": user['createTime'],
+                    "username": user['username'],
                     "roles": user['roles'],
                 }
             }

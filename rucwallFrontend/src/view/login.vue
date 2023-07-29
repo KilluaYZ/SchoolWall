@@ -17,7 +17,7 @@
               <el-input type="password" v-model="form.password"></el-input>
             </el-form-item>
             <div class="flex_justify_content_center flex">
-              <el-button type="primary" @click="login">登录</el-button>
+              <el-button type="primary" @click="onClickLoginBtn">登录</el-button>
               <el-button type="success" @click="toRegister">跳转注册</el-button>
             </div>
           </el-form>
@@ -103,6 +103,10 @@
 <script setup>
 import {ref} from "vue";
 import { useRouter } from 'vue-router'
+import {login} from "../api/auth.js";
+import {ElMessage} from "element-plus";
+import {setToken} from "../util/auth.js";
+
 const router = useRouter()
 
 const form = ref({})
@@ -110,4 +114,24 @@ const form = ref({})
 function toRegister(){
   router.push({path:'/register'})
 }
+
+function onClickLoginBtn(){
+  if (form.value.username.length == 0 || form.value.password.length == 0){
+    ElMessage({type: 'error', message: '请输入用户名和密码'});
+    return;
+  }
+  login(form.value.username, form.value.password).then(res => {
+    if (res.code == 200){
+      ElMessage({type: 'success', message: '登录成功'})
+      setToken(res.data.token);
+      router.push({path:'/'})
+    }
+    else{
+      ElMessage({type: 'error', message: res.msg})
+    }
+  })
+
+}
+
+
 </script>

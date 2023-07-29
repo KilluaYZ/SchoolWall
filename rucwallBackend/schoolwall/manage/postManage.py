@@ -31,6 +31,10 @@ def __query_post_sql(query_param: dict) -> List[Dict]:
         args_str_list.append(f' and content like %s ')
         args_val_list.append(f'%{query_param["content"]}%')
 
+    if 'postId' in query_param:
+        args_str_list.append(f' and id = %s ')
+        args_val_list.append(query_param['postId'])
+
     sql = sql_select
     if len(args_str_list):
         sql += ' where 1=1 '
@@ -51,7 +55,7 @@ def __get_liked_posts_sql(userId: str) -> List:
     return rows
 
 def __get_post_like_num(postId):
-    sql = ' select count(*) from user_post_like where replyId = %s '
+    sql = ' select count(*) from user_post_like where postId = %s '
     row = execute_sql_query_one(pooldb, sql, (postId))
     return int(row['count(*)'])
 
@@ -71,18 +75,28 @@ def post_list():
             rows[i]['isLiked'] = False
             rows[i]['likeNum'] = __get_post_like_num(rows[i]['id'])
             rows[i]['replyNum'] = __get_post_reply_num(rows[i]['id'])
+            rows[i]['isYours'] = False
 
-        admin_user = check_user_before_request(request, False, 'admin')
-        if admin_user is not None:
+        # 是否喜欢过
+        common_user = check_user_before_request(request, False, 'common')
+        if common_user is not None:
+            liked_posts_ids = __get_liked_posts_sql(common_user['id'])
+            print(f'[DEBUG] liked_posts_ids = {liked_posts_ids}')
             for i in range(len(rows)):
-                rows[i]['isLiked'] = True
-        else:
-            common_user = check_user_before_request(request, False,'common')
-            if common_user is not None:
-                liked_posts_ids = __get_liked_posts_sql(common_user['id'])
+                if (rows[i]['id'] in liked_posts_ids):
+                    print(f'[DEBUG] into iii')
+                    rows[i]['isLiked'] = True
+
+        if common_user is not None:
+            # 是否属于你自己
+            if common_user['roles'] == 'admin':
                 for i in range(len(rows)):
-                    if(rows[i]['id'] in liked_posts_ids):
-                        rows[i]['isLiked'] = True
+                    rows[i]['isYours'] = True
+            else:
+                for i in range(len(rows)):
+                    if (__check_if_post_belong_to_user(common_user['id'], rows[i]['id'])):
+                        rows[i]['isYours'] = True
+
 
         return build_success_response(rows)
 
@@ -92,6 +106,48 @@ def post_list():
     except Exception as e:
         check.printException(e)
         return build_error_response(code=500, msg='服务器内部错误')
+
+@bp.route('/get', methods=['GET'])
+def post_get():
+    """
+    获取全部的帖子
+    """
+    try:
+        postId = request.args.get("postId")
+        if postId is None:
+            raise NetworkException(400, "前端数据错误，缺少postId")
+        rows = __query_post_sql({'postId': postId})
+        if rows is None or len(rows) == 0:
+            raise NetworkException(404, "postId不存在")
+
+        row = rows[0]
+        row['isLiked'] = False
+        row['likeNum'] = __get_post_like_num(row['id'])
+        row['replyNum'] = __get_post_reply_num(row['id'])
+
+        # 是否喜欢过
+        common_user = check_user_before_request(request, False, 'common')
+        if common_user is not None:
+            liked_posts_ids = __get_liked_posts_sql(common_user['id'])
+            if (row['id'] in liked_posts_ids):
+                row['isLiked'] = True
+
+        if common_user is not None:
+            # 是否属于你自己
+            if common_user['roles'] == 'admin':
+                row['reply'] = get_reply_list_by_postId(row['id'], admin_user['id'], True)
+            else:
+                row['reply'] = get_reply_list_by_postId(row['id'], common_user['id'])
+
+        return build_success_response(row)
+
+    except NetworkException as e:
+        return build_error_response(code=e.code, msg=e.msg)
+
+    except Exception as e:
+        check.printException(e)
+        return build_error_response(code=500, msg='服务器内部错误')
+
 
 def __add_post_sql(content, userId):
     sql = ' insert into posts(content, userId) values(%s, %s) '
@@ -142,10 +198,10 @@ def post_del():
             raise NetworkException(400, '前端缺少参数postId')
         user = check_user_before_request(request)
         if __check_if_post_belong_to_user(user['id'], postId):
-            __del_post_sql(replyId)
+            __del_post_sql(postId)
         else:
             user = check_user_before_request(request, roles='admin')
-            __del_post_sql(replyId)
+            __del_post_sql(postId)
 
         return build_success_response()
 
@@ -231,19 +287,24 @@ def get_reply_list_by_postId(postId, userId, is_admin = False):
     rows = __query_reply_sql(postId)
 
     for i in range(len(rows)):
-        rows[i]['isLike'] = False
+        rows[i]['isLiked'] = False
         rows[i]['likeNum'] = __get_reply_like_num(rows[i]['id'])
+        rows[i]['isYours'] = False
 
+    # 是否喜欢过
+    liked_reply_ids = __get_liked_reply_sql(userId)
+    for i in range(len(rows)):
+        if (rows[i]['id'] in liked_reply_ids):
+            rows[i]['isLiked'] = True
+
+    # 是否属于你自己
     if is_admin:
         for i in range(len(rows)):
-            rows[i]['isLiked'] = True
+            rows[i]['isYours'] = True
     else:
-        liked_reply_ids = __get_liked_reply_sql(userId)
         for i in range(len(rows)):
-            if (rows[i]['id'] in liked_reply_ids):
-                row[i]['isLiked'] = True
-            else:
-                row[i]['isLiked'] = False
+            if (__check_if_reply_belong_to_user(userId, rows[i]['id'])):
+                row[i]['isYours'] = True
     return rows
 
 def __add_reply_sql(content, userId, postId):

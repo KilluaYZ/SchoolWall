@@ -18,7 +18,7 @@ class Pooldb:
             host="127.0.0.1",
             user="root",
             password="123456",
-            database="rucwall",
+            database="schoolwall_db",
             port=3306,
             max_reconnect_time=20
     ):
@@ -156,7 +156,7 @@ MYSQL_USER = os.environ.get('MYSQL_USER')
 MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD')
 MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE')
 if not MYSQL_HOST:
-    MYSQL_HOST = 'killuayz.top'
+    MYSQL_HOST = '127.0.0.1'
 if not MYSQL_PORT:
     MYSQL_PORT = 3306
 if not MYSQL_USER:
@@ -164,7 +164,7 @@ if not MYSQL_USER:
 if not MYSQL_PASSWORD:
     MYSQL_PASSWORD = '123456'
 if not MYSQL_DATABASE:
-    MYSQL_DATABASE = 'rucwall_db'
+    MYSQL_DATABASE = 'schoolwall_db'
 
 global pooldb
 pooldb = Pooldb(host=MYSQL_HOST,

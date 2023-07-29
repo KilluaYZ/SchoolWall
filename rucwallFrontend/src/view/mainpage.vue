@@ -2,12 +2,12 @@
  <el-container class="outer_container">
    <el-header>
      <div class="flex flex_justify_content_end">
-       <div v-if="is_login" class="flex flex_justify_content_end flex_align-items_center">
-         <p>20161111</p>
-         <el-button type="info">退出</el-button>
+       <div v-if="user_info.username" class="flex flex_justify_content_end flex_align-items_center">
+         <p>{{user_info.username}}</p>
+         <el-button type="info" @click="onCLickLogout">退出</el-button>
        </div>
        <div v-else class="flex flex_justify_content_end flex_align-items_center">
-         <el-button type="primary" @click="login">登录</el-button>
+         <el-button type="primary" @click="toLogin">登录</el-button>
        </div>
      </div>
    </el-header>
@@ -45,7 +45,7 @@
          <el-row class="flex_justify_content_space_between flex_align-items_center">
            <p>#{{ post.id }}</p>
            <div class="flex flex_align-items_center">
-             <p>{{ post.time }}</p>
+             <p>{{ post.createTime }}</p>
              <el-dropdown :hide-on-click="false" class="margin_left_5px">
                <!--          <span class="el-dropdown-link">-->
                <!--            Dropdown List<el-icon class="el-icon&#45;&#45;right"><arrow-down/></el-icon>-->
@@ -54,7 +54,7 @@
                <template #dropdown>
                  <el-dropdown-menu>
                    <el-dropdown-item>举报</el-dropdown-item>
-                   <el-dropdown-item>删除</el-dropdown-item>
+                   <el-dropdown-item v-if="post.isYours" @click="onClickDelBtn(post.id)">删除</el-dropdown-item>
                  </el-dropdown-menu>
                </template>
              </el-dropdown>
@@ -69,8 +69,14 @@
 
          <el-row class="flex_justify_content_space_between">
            <div class="flex flex_align-items_center">
-             <el-image class="squire_18px" src="/src/assets/like.png"/>
-             <p class="margin_left_5px">{{ post.likeNum }}</p>
+             <template v-if="post.isLiked">
+               <el-image class="squire_18px" src="/src/assets/liked.png" @click="onClickLikeBtn(index)"/>
+               <p class="margin_left_5px">{{ post.likeNum }}</p>
+             </template>
+             <template v-else>
+               <el-image class="squire_18px" src="/src/assets/like.png" @click="onClickLikeBtn(index)"/>
+               <p class="margin_left_5px">{{ post.likeNum }}</p>
+             </template>
            </div>
            <div class="flex flex_align-items_center">
              <el-image class="squire_18px" src="/src/assets/message.png"/>
@@ -154,50 +160,92 @@
 
 <script setup>
 
-import {ref} from "vue";
+import {onMounted, ref} from "vue";
+import {useRouter} from "vue-router";
+import {getInfo, logout} from "../api/auth.js";
+import {listPost, addPost, addPostLike, delPostLike, delPost} from "../api/post.js";
+import {removeToken} from "../util/auth.js";
+import {ElMessage, ElMessageBox} from "element-plus";
 
+const router = useRouter()
 const commit_text = ref('');
 const search_text = ref('');
-const is_login = ref(false);
 
-const posts = ref([
-  {
-    id: 123,
-    content: "hihihihihi",
-    time: "2023-07-27 10:00:00",
-    likeNum: 10,
-    replyNum: 12
-  },
-  {
-    id: 124,
-    content: "hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi",
-    time: "2023-07-27 10:00:00",
-    likeNum: 10,
-    replyNum: 12
-  },
-  {
-    id: 125,
-    content: "hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi",
-    time: "2023-07-27 10:00:00",
-    likeNum: 10,
-    replyNum: 12
-  },
-  {
-    id: 126,
-    content: "hihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihihi",
-    time: "2023-07-27 10:00:00",
-    likeNum: 10,
-    replyNum: 12
-  }
-]);
+const user_info = ref({});
+const posts = ref([]);
 
+function loadUserInfo(){
+  getInfo().then(res => {
+    user_info.value = res.data.userInfo;
+  })
+}
+
+function loadPostInfo(){
+  listPost().then(res => {
+    posts.value = res.data;
+  })
+}
+
+function loadAllInfo(){
+  loadUserInfo();
+  loadPostInfo();
+}
+
+onMounted(loadAllInfo);
 
 function onCommit() {
-
+  let content = commit_text.value;
+  if(content.trim() === ''){
+    return;
+  }
+  content = content.trim();
+  addPost(content).then(res => {
+    loadPostInfo();
+    ElMessage({type:"success", message: res.msg})
+  })
 }
 
 function onSearch() {
 
+}
+
+function onClickDelBtn(postId){
+  ElMessageBox.alert('确定删除该条动态吗？', '删除', {
+    confirmButtonText: '确定',
+    callback: (action) => {
+      if (action === 'confirm') {
+        delPost(postId).then(res => {
+          loadPostInfo();
+          ElMessage({type:'success', message: res.msg});
+        })
+      }
+    },
+    cancelButtonText: '取消'
+  }
+  );
+}
+
+function  onClickLikeBtn(index){
+  if(posts.value[index].isLiked){
+    posts.value[index].isLiked = false;
+    posts.value[index].likeNum--;
+    delPostLike(posts.value[index].id);
+  }else{
+    posts.value[index].isLiked = true;
+    posts.value[index].likeNum++;
+    addPostLike(posts.value[index].id);
+  }
+}
+
+function toLogin(){
+  router.push({path:'/login'})
+}
+
+function onCLickLogout(){
+  logout().then(() => {
+    removeToken();
+    loadAllInfo();
+  })
 }
 
 </script>
